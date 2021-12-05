@@ -1,6 +1,6 @@
 # 一、简介
 
-Canvas是HTML5新增的组件，它就像一块幕布，可以用JavaScript在上面绘制各种图表、动画等。
+Canvas是HTML5新增的组件，它就像一块幕布，可以用 JavaScript在 上面绘制各种图表、动画等。
 
 一个Canvas定义了一个指定尺寸的矩形框，在这个范围内我们可以随意绘制：
 
@@ -12,11 +12,11 @@ Canvas是HTML5新增的组件，它就像一块幕布，可以用JavaScript在�
 
 ```html
 <canvas id="canvas" width="500" height="300">
-    <p>浏览器不支持 Canvas！</p>
+    your browser doesn't support canvas!
 </canvas>
 ```
 
-> 提示：canvas 必须明确使用 `width`、`height` 属性指定其尺寸，使用CSS无效导致扭曲。
+> **注意:** 如果你绘制出来的图像是扭曲的, 尝试用width和height属性为 \<canvas>明确规定宽高，而不是使用CSS。
 
 在使用Canvas前，用 `canvas.getContext` 来测试浏览器是否支持Canvas：
 
@@ -53,29 +53,37 @@ Canvas的坐标以左上角为原点，水平向右为X轴，垂直向下为Y轴
 
 ```markdown
 # 1. 填充
-context.fillStyle='color | gradient | pattern';
+context.fillStyle = '字符串 | 十六进制(缩写) | RGB(A)';
 context.fill();
-# 2. 绘制
-context.strokeStyle='color';
+
+# 2. 勾勒
+context.strokeStyle = '字符串 | 十六进制(缩写) | RGB(A)';
 context.stroke();
+
 # 3. 画笔粗细
 context.lineWidth;
+
 # 4. 线头
-context.lineCap = 'butt|round|square';
+context.lineCap = 'butt | round | square';
+
 # 5. 交点
 context.lineJoin = 'miter|round|bevel';
+
 # 6. 透明度
 context.globalAlpha = 0.5; // between 0 and 1
+
 # 7. 阴影
-context.shadowColor='color';
-context.shadowBlur=blur;
-context.shadowOffsetX=x;
-context.shadowOffsetY=y;
+context.shadowColor = 'color';
+context.shadowBlur = blur;
+context.shadowOffsetX = x;
+context.shadowOffsetY = y;
+
 # 8. 线性渐变
 let gradient = context.createLinearGradient(xStart,yStart,xEnd,yEnd);
 gradient.addColorStop(offset, color); // 颜色节点
 context.fillStyle = gradient;
 context.fillRect();
+
 # 9. 径向渐变
 let gradient = context.createRadialGradient(xStart,yStart,radiusStart,xEnd,yEnd,radiusEnd);
 gradient.addColorStop(offset,color);
@@ -88,14 +96,19 @@ context.fill();
 ```markdown
 # 1. 填充文字
 context.fillText(text, x, y, maxWidth);
+
 # 2. 绘制文字轮廓
 context.strokeText(text, x, y, maxWidth);
+
 # 3. 字体样式
-context.font
-# 4. 水平对齐方式(以文字宽度的中心点作为基准线)
+context.font = "[italic / bold] 40px Arial";
+
+# 4. 水平对齐方式（以文字宽度的中心点作为基准线）
 context.textAlign='start | left | center | right |end';
-# 5. 垂直对齐方式(以文字高度的中心点作为基准线)
+
+# 5. 垂直对齐方式（以文字高度的中心点作为基准线）
 context.textBaseline='top | hanging | middle | alphabetic | ideographic | bottom';
+
 # 6. 计算文本宽度
 context.measureText(text).width;
 ```
