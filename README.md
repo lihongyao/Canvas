@@ -341,7 +341,7 @@ canvas 动画实现的基本原理就是结合定时器绘制，并定时清除�
 4. **恢复 canvas 状态**
    如果已经保存了 canvas 的状态，可以先恢复它，然后重绘下一帧。
 
-# 九、参考/资料 
+# # 参考/资料 
 
 1. [runoob-canvas](http://www.runoob.com/tags/ref-canvas.html)
 2. [w3school-canvas](http://www.w3school.com.cn/tags/html_ref_canvas.asp)
