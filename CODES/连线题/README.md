@@ -633,7 +633,7 @@ btnCheck.onclick = checkAnwsers;
 
 # 完整代码
 
-点击查看 [完整代码]()
+点击查看 [完整代码](https://gitee.com/lihongyao/Canvas/tree/master/CODES/%E8%BF%9E%E7%BA%BF%E9%A2%98/src)
 
 # 尾叙
 
