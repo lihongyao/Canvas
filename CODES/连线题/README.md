@@ -6,7 +6,7 @@
 
 ![](../../IMGS/canvas-matching.gif)
 
-本示例主要使用原生js + canvas 实现，为了各位看官能够理解实现，代码中有大量的注释，并且没有过度封装和抽离。后续会基于此将其封装成一个类，并且实现在React和Vue中的应用。
+本示例主要使用原生js + canvas 实现，为了各位看官能够理解实现，代码中有大量的注释，并且没有过度封装和抽离。
 
 # 需求
 
@@ -633,7 +633,7 @@ btnCheck.onclick = checkAnwsers;
 
 # 完整代码
 
-点击查看 [完整代码](https://gitee.com/lihongyao/Canvas/tree/master/CODES/%E8%BF%9E%E7%BA%BF%E9%A2%98/src)
+点击查看 [完整代码](https://gitee.com/lihongyao/Canvas/tree/master/CODES/%E8%BF%9E%E7%BA%BF%E9%A2%98)
 
 # 尾叙
 
@@ -644,7 +644,7 @@ btnCheck.onclick = checkAnwsers;
 1. 封装成工具类，便于在开发中可以方便快速的集成。
 2. 完善基于 React/Vue 实现代码示例。
 
-
+> 温馨提示：原创不易，转载请注明出处。
 
 
 
