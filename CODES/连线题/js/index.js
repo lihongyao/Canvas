@@ -76,7 +76,6 @@ let endPoint = { x: 0, y: 0 }; // 记录每一次连线结束点
 let startElement = null; // 记录每一次连线开始元素
 let endElement = null; // 记录每一次连线结束元素
 let backLines = []; // 记录已经连接好的线·数据结构 → { anwser: [左侧元素ID, 右侧元素ID], point: {x1, y1, x2, y2}}[]
-let pair = 0; // 记录连线次数
 
 function onMousedown(event) {
   // 高亮显示按下的元素

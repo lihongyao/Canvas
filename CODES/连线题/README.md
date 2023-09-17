@@ -635,14 +635,11 @@ btnCheck.onclick = checkAnwsers;
 
 点击查看 [完整代码](https://gitee.com/lihongyao/Canvas/tree/master/CODES/%E8%BF%9E%E7%BA%BF%E9%A2%98)
 
+已封装 **`MactLine`** 工具类发布至npm，点击 [前往查看 >>](https://www.npmjs.com/package/@likg/match-line)
+
 # 尾叙
 
 如果大家觉得这篇文章帮到了您，欢迎 **点赞** + **关注**，在 **连线题** 的实现中，我认为还有很多值得优化和推敲的地方，如果大家有什么更好的建议，欢迎评论区留言，我们一起探讨最优解。
-
-后续计划：
-
-1. 封装成工具类，便于在开发中可以方便快速的集成。
-2. 完善基于 React/Vue 实现代码示例。
 
 > 温馨提示：原创不易，转载请注明出处。
 
