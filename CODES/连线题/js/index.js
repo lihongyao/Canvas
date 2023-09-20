@@ -17,13 +17,14 @@ canvas.height = backCanvas.height = 250;
 const ctx = canvas.getContext("2d");
 const backCtx = backCanvas.getContext("2d");
 
-ctx.strokeStyle = backCtx.strokeStyle = 'blue';
-ctx.lineWidth = backCtx.lineWidth = 2;
+ctx.strokeStyle = backCtx.strokeStyle = '#6495ED';
+ctx.lineWidth = backCtx.lineWidth = 1;
 
 
 // 第2步：获取列表元素，挂载后续操作所需的数据
-const listItems = document.querySelectorAll('.list .item');
-listItems.forEach(item => {
+const tag = 'v__' + Math.random().toString(36).slice(2);
+const options = document.querySelectorAll('.container .option');
+options.forEach(item => {
   // 获取元素在屏幕上的信息
   const { width, height } = item.getBoundingClientRect();
   // 获取元素归属：左侧还是右侧·用于计算元素锚点坐标
@@ -36,18 +37,20 @@ listItems.forEach(item => {
 
   // 标识当前元素是否连线
   item.dataset.checked = '0';
+  // 标识当前元素为连线元素
+  item.dataset.tag = tag;
 
   // 绘制锚点，查看锚点位置是否准确（临时代码）
-  // ctx.beginPath();
-  // ctx.arc(anchorX, anchorY, 4, 0, Math.PI * 2);
-  // ctx.stroke();
-  // ctx.closePath();
+  ctx.beginPath();
+  ctx.arc(anchorX, anchorY, 4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.closePath();
 });
 
 
 
 // 第3步：绑定事件
-listItems.forEach((item) => (item.onmousedown = onMousedown));
+options.forEach((item) => (item.onmousedown = onMousedown));
 document.onmousemove = onMousemove;
 document.onmouseup = onMouseup;
 
@@ -64,17 +67,13 @@ let anwsers = {}; // 记录答案
 function onMousedown(event) {
   // 高亮显示按下的元素
   this.classList.add('active');
-
   // 记录每一次连线的开始元素
   startElement = this;
-
   // 更新每一次连线开始点信息
   startPoint.x = +this.dataset.anchorX;
   startPoint.y = +this.dataset.anchorY;
-
   // 标识触发连线，用于在mousemove中判断是否需要处理后续的逻辑
   trigger = true;
-
   // 阻止时间冒泡/默认行为
   event.stopPropagation();
   event.preventDefault();
@@ -118,10 +117,10 @@ function onMousemove(event) {
 
 
     // 判断是否命中目标元素，条件如下（同时满足）
-    // ① 鼠标经过的元素必须必须是连线元素（可通过判断 data-ownership 是否为‘L’或‘R’判断）
+    // ① 鼠标经过的元素必须必须是连线元素（可通过判断 data-tag 是否和设置的tag一致即可）
     // ② 鼠标经过的元素和开始元素不在同一侧
     // ③ 鼠标经过的元素未被连线
-    const condition1 = ['L', 'R'].includes(overElement.dataset.ownership);
+    const condition1 = overElement.dataset.tag === tag;
     const condition2 = overElement.dataset.ownership !== ownership;
     const condition3 = overElement.dataset.checked !== '1';
     if (condition1 && condition2 && condition3) {
@@ -203,7 +202,6 @@ function onMouseup(event) {
       key: k,
       point: { x1, y1, x2, y2 },
     });
-    console.log(backLines);
     drawLines();
 
   }
@@ -239,7 +237,7 @@ function drawLines() {
 const btnReset = document.querySelector('.reset');
 btnReset.onclick = function () {
   backCtx.clearRect(0, 0, backCanvas.width, backCanvas.height);
-  listItems.forEach((item) => {
+  options.forEach((item) => {
     item.classList.remove('active');
     item.dataset.checked = '0';
   });
@@ -256,8 +254,8 @@ btnUndo.onclick = function () {
   const line = backLines.pop();
   if (line) {
     const { key } = line;
-    const leftSel = `[data-value=${key}]`;
-    const rightSel = `[data-value=${anwsers[key]}]`;
+    const leftSel = `[data-value="${key}"]`;
+    const rightSel = `[data-value="${anwsers[key]}"]`;
     delete anwsers[key];
     const leftElement = document.querySelector(leftSel);
     const rightElement = document.querySelector(rightSel);
@@ -305,7 +303,7 @@ const showAnwsers = () => {
     keys.forEach((key) => {
       const value = anwsers[key];
       // 获取开始元素和目标元素
-      const leftSel = `[data-value=${key}]`;
+      const leftSel = `[data-value="${key}"]`;
       const rightSel = `[data-value=${value}]`;
       const leftElement = document.querySelector(leftSel);
       const rightElement = document.querySelector(rightSel);
@@ -361,7 +359,7 @@ const checkAnwsers = () => {
     /****************
      * 找到用户连线的数据
      ****************/
-    const leftSel = `[data-value=${key}]`;
+    const leftSel = `[data-value="${key}"]`;
     const rightSel = `[data-value=${value}]`;
     const leftElement = document.querySelector(leftSel);
     const rightElement = document.querySelector(rightSel);

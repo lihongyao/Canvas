@@ -37,11 +37,11 @@
   position: relative;
 }
 
-.list:last-child {
+.rightOptions {
   font-size: 26px;
 }
 
-.item {
+.option {
   width: 100px;
   height: 40px;
   background-color: #fff;
@@ -56,11 +56,11 @@
   z-index: 1;
 }
 
-.item:not(:last-child) {
+.option:not(:last-child) {
   margin-bottom: 10px;
 }
 
-.item.active {
+.option.active {
   background: #6495ED;
   color: #FFF;
 }
