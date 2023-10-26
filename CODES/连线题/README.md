@@ -675,11 +675,11 @@ btnCheck.onclick = checkAnwsers;
 
 有小伙伴在后台留言说，知道怎么在客户端渲染绘制连线题了，但是在 **后台管理系统** 创建试题时，如何去构造连线试题的数据呢？那么今天，刚好有时间，带着大家一起去探讨。先看效果：
 
-![](../../IMGS/canvas-matching-examples.gif)
+![](../../IMGS/canvas-matching-eg.gif)
 
 ## 需求
 
-1. 管理员构造连线数据
+1. 管理员创建连线题试题
    - 由于只实现 **1对1**，因此连线题数据左右项的长度必须一致。
    - 为了保证连线题的顺序，我们应该使用数组结构来存储数据项。
    - 连线题至少包含两组选项，否则没有意义。
@@ -701,7 +701,7 @@ btnCheck.onclick = checkAnwsers;
 }
 ```
 
-> 注意：在这个结构中，所有的 `key` 表示 **左列**，所有的  `value` 表示 **右列**。
+> 注意：在这个结构中，所有的 `key` 表示 **左列** 值，所有的  `value` 表示 **右列** 值。
 
 由于Map结构是无序的，为了保证前端在渲染数据项时有序，这里对于数据项的存储我们使用数组结构，这样也便于我们去对数据项做添加和删除的动作，具体结构如下所示：
 
@@ -721,212 +721,303 @@ export type MatchLineOptions = Array<{
 ]
 ```
 
-思考：
+创建试题时，我们主要维护数据项数组 `options` 即可，当点击 **添加一组数据** 时，我们只需要在数组末尾追加数据项即可，如下所示：
 
-1. 创建试题时，我们主要维护数据项数组 `options` 即可，当点击 **添加一组数据** 时，我们只需要在数组末尾追加数据项即可，如下所示：
+```ts
+options.push({leftOption: '', rightOption: ''})
+```
 
-   ```ts
-   options.push({leftOption: '', rightOption: ''})
-   ```
+> 提示：你应该确保数据项至少包含两组，否则连线题无意义。
 
-   > 提示：你应该确保数据项至少包含两组，否则连线题无意义。
-
-2. 当用户编辑数据项时，动态更新对应的值即可。值得注意的是，
-
-3. 当点击 **保存** 按钮时：
-
-   ① 判断是否有重复项或者未填项
-
-   ② 初始化连线功能（*这里我们直接用我封装好的库 [@likg/match-line](https://www.npmjs.com/package/@likg/match-line)，就不单独写一份了*）
-
-4. 提交时将连线的数据项和标准答案发送给后端
+当用户编辑数据项时，动态更新对应的值。
 
 ## 代码实现
 
 框架：React + TypeScript + Ant Design 
 
-这里，我将构造连线题数据和设置标准答案单独封装成了一个组件，我只贴出组件部分代码，供大家参考：
+### MatchLineForm
 
 **`.tsx`**
 
 ```tsx
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import MatchLine, {
+  MatchLineAnwsers,
+  MatchLineOptions,
+} from '@likg/match-line';
 import { App, Button, Input, Space } from 'antd';
-import React, { useState } from 'react';
-import MatchLine, { MatchLineOptions } from '@likg/match-line';
-import './MatchingQuestion.less';
+import React, { useEffect, useState } from 'react';
+import './index.less';
 
-const defaultItems: MatchLineOptions = [
-  { leftOption: '水果', rightOption: '🥕' },
-  { leftOption: '动物', rightOption: '🚗' },
-  { leftOption: '汽车', rightOption: '🐒' },
-];
+let index__ = 0;
 
-const MatchingQuestion: React.FC = React.memo(() => {
-  const { message } = App.useApp();
+export interface MatchLineFormValue {
+  options: MatchLineOptions;
+  anwsers?: MatchLineAnwsers;
+}
 
-  // 连线题数据项（构造时）
-  const [items, setItems] = useState(defaultItems);
-  // 连线题数据项（保存时·提交给后端时的数据格式）
-  const [options, setOptions] = useState<MatchLineOptions>([]);
-  // 是否编辑过数据项
-  const [isEdited, setIsEdited] = useState(false);
-  // 连线题js库实例
-  const [matchLine, setMatchLine] = useState<MatchLine | null>(null);
+interface IProps {
+  type?: 'TEXT' | 'IMAGE';
+  value?: MatchLineFormValue;
+  onChange?: (value: MatchLineFormValue) => void;
+}
 
-  // 校验是否有重复项或者是否有未填写的项
-  const hasDuplicates = (): 0 | 1 | 2 => {
-    const see: Record<string, boolean> = {};
-    for (const { leftOption, rightOption } of items) {
-      if (!leftOption || !rightOption) {
-        return 1;
+const MatchLineForm: React.FC<IProps> = React.memo(
+  ({ value, type = 'TEXT', onChange }) => {
+    const { message } = App.useApp();
+    const defaultValue: MatchLineFormValue = {
+      options: [
+        { leftOption: '', rightOption: '' },
+        { leftOption: '', rightOption: '' },
+      ],
+      anwsers: undefined,
+    };
+
+    const [matchline, setMatchline] = useState<MatchLine | null>(null);
+    const [showAnchor, setShowAnchor] = useState(false);
+    const [dataSource, setDataSource] = useState<MatchLineFormValue>(
+      value || defaultValue,
+    );
+
+    const onPushOption = () => {
+      const t = { ...dataSource };
+      t.options.push({ leftOption: '', rightOption: '' });
+      t.anwsers = undefined;
+      setDataSource(t);
+      onChange && onChange(t);
+    };
+
+    const onDeleteOption = (index: number) => {
+      if (dataSource.options.length <= 2) {
+        return message.warning('至少需要两组选项');
       }
-      if (leftOption === rightOption || see[leftOption] || see[rightOption]) {
-        return 2;
+      const t = { ...dataSource };
+      t.options.splice(index, 1);
+      t.anwsers = undefined;
+      setDataSource(t);
+      onChange && onChange(t);
+    };
+
+    const onInputChange = (
+      value: string,
+      index: number,
+      key: 'leftOption' | 'rightOption',
+    ) => {
+      const t = { ...dataSource };
+      t.options[index][key] = value;
+      t.anwsers = undefined;
+      setDataSource(t);
+      onChange && onChange(t);
+    };
+
+    const onFileChange = (
+      files: FileList | null,
+      index: number,
+      key: 'leftOption' | 'rightOption',
+    ) => {
+      if (files && files.length > 0) {
+        const file = files[0];
+        message.loading('图片上传中...', 60 * 1000);
+        // -- 模拟图片
+        const urls = [
+          'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2F351de5f7-9498-40bf-a2a4-50f8a7599acc%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1698247010&t=60c3f75d31bfb77d5aa46bc56751c7bc',
+          'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2Fc77eccc9-5752-4ab5-a777-bc64122a7fc2%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1698247010&t=d084e5951792eecace95df293e6c507d',
+          'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2F4cecb617-8679-4d3c-bb1b-222334871030%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1698247010&t=eadc698ee9de58281d527d7c964bfaa8',
+          'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2Fa87bd95e-af43-43fb-b9c6-2be9720ae8c4%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1698247010&t=4d072c0b9c7d60abf0c2a12b8f24f4c6',
+          'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2Fbb44dd9b-3e37-4ca6-ae76-4cf845703948%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1698247010&t=e152ef9a03b93ab2fd4ae36d478e7ad9',
+          'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fsafe-img.xhscdn.com%2Fbw1%2Fcefc1885-6350-4f70-9af8-a24ec8ff3f3f%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fsafe-img.xhscdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1698247010&t=6d7a71d028356c7a5d08e44e5d31b0d4',
+        ];
+        setTimeout(() => {
+          const t = { ...dataSource };
+          t.options[index][key] = urls[index__++];
+          t.anwsers = undefined;
+          setDataSource(t);
+          onChange && onChange(t);
+          message.destroy();
+        }, 500);
       }
-      see[leftOption] = see[rightOption] = true;
-    }
-    return 0;
-  };
+    };
 
-  // 更新数据项
-  const changeValue = (
-    index: number,
-    v: string,
-    k: 'leftOption' | 'rightOption',
-  ) => {
-    const t = [...items];
-    t[index][k] = v.trim();
-    setItems(t);
-    setIsEdited(true);
-  };
-  // 添加数据项
-  const addItem = () => {
-    const t = [...items];
-    t.push({ leftOption: '', rightOption: '' });
-    setItems(t);
-    setIsEdited(true);
-  };
+    useEffect(() => {
+      const { options, anwsers } = dataSource;
+      if (anwsers) {
+        setShowAnchor(true);
+      } else {
+        const see: Record<string, boolean> = {};
+        let flag = true;
+        for (let i = 0; i < options.length; i++) {
+          const { leftOption, rightOption } = options[i];
+          if (!leftOption || !rightOption) {
+            flag = false;
+            break;
+          }
+          if (see[leftOption]) {
+            flag = false;
+            break;
+          }
+          see[leftOption] = true;
+          if (see[rightOption]) {
+            flag = false;
+            break;
+          }
+          see[rightOption] = true;
+        }
+        setShowAnchor(flag);
+      }
+    }, [dataSource]);
 
-  // 删除数据项
-  const deleteItem = (index: number) => {
-    if (items.length <= 2) {
-      message.info('至少保留两项');
-      return;
-    }
-    const t = [...items];
-    t.splice(index, 1);
-    setItems(t);
-    setIsEdited(true);
-  };
-
-  // 构建MatchLine实例
-  const initMatchLine = () => {
-    setTimeout(() => {
-      // -- 获取元素
-      const container = document.querySelector('.match-line .container');
-      const items = document.querySelectorAll('.match-line .option');
-      const canvas = document.getElementById('canvas');
-      const backCanvas = document.getElementById('backCanvas');
-      // -- 初始化连线库
+    useEffect(() => {
+      const container = document.querySelector('.match-line__container');
+      const items = document.querySelectorAll('.anchor');
+      const canvas = document.querySelector('#canvas');
+      const backCanvas = document.querySelector('#backCanvas');
       if (container && items && canvas && backCanvas) {
-        const matching = new MatchLine({
-          id: 'v',
-          container: container as HTMLElement,
+        const matchline = new MatchLine({
+          id: 'a',
+          container: container as HTMLDivElement,
           items: items as NodeListOf<HTMLElement>,
           canvas: canvas as HTMLCanvasElement,
           backCanvas: backCanvas as HTMLCanvasElement,
-          itemActiveCls: 'active',
-          onChange: (anwsers) => {
-            console.log(anwsers);
+          anwsers: dataSource?.anwsers,
+          onChange(anwsers) {
+            const t = { ...dataSource };
+            t.anwsers = anwsers;
+            setDataSource(t);
+            onChange && onChange(t);
           },
         });
-        setMatchLine(matching);
+        setMatchline(matchline);
       }
-    }, 0);
-  };
-  // 保存
-  const onSave = () => {
-    const flag = hasDuplicates();
-    if (flag) {
-      return message.error(flag === 1 ? '有待填写的数据项' : '有重复的数据项');
-    } else {
-      setOptions(items);
-      setIsEdited(false);
-      initMatchLine();
-    }
-  };
+    }, [onChange, dataSource, showAnchor]);
 
-  // 渲染列表项
-  const renderItems = (ownership: 'L' | 'R') => {
-    const k = ownership === 'L' ? 'leftOption' : 'rightOption';
-    return items.map((item, index) => (
-      <div
-        className="option"
-        key={index}
-        data-value={item[k]}
-        data-ownership={ownership}
-      >
-        {item[k]}
-      </div>
-    ));
-  };
+    const renderItems = () => {
+      return dataSource.options.map((option, i) => {
+        return (
+          <div className="row" key={i}>
+            <div className="wrap">
+              {/* 左侧 */}
+              <div className="item leftOption">
+                {type === 'TEXT' ? (
+                  <Input
+                    placeholder="左侧"
+                    value={option.leftOption}
+                    onChange={(e) =>
+                      onInputChange(e.target.value, i, 'leftOption')
+                    }
+                  />
+                ) : (
+                  <div
+                    className="upload-box"
+                    style={{
+                      backgroundImage: `url('${option.leftOption}')`,
+                    }}
+                  >
+                    {option.leftOption ? null : (
+                      <Space direction={'vertical'} align={'center'}>
+                        <UploadOutlined style={{ color: '#C5C5C5' }} />
+                      </Space>
+                    )}
+                    <input
+                      type={'file'}
+                      onChange={(event) => {
+                        onFileChange(event.target.files, i, 'leftOption');
+                      }}
+                    />
+                  </div>
+                )}
 
-  return (
-    <div>
-      {/* 构造数据项部分 */}
-      <Space direction={'vertical'}>
-        {items.map(({ leftOption, rightOption }, index) => (
-          <Space key={index}>
-            <Input
-              value={leftOption}
-              placeholder="左侧"
-              onChange={(e) => changeValue(index, e.target.value, 'leftOption')}
-            />
-            <span>:</span>
-            <Input
-              value={rightOption}
-              placeholder="右侧"
-              onChange={(e) => changeValue(index, e.target.value, 'rightOption')}
-            />
+                {showAnchor && (
+                  <div
+                    draggable={false}
+                    className="anchor"
+                    data-value={option.leftOption}
+                    data-ownership={'L'}
+                    data-checked="0"
+                  />
+                )}
+              </div>
+              {/* 右侧 */}
+              <div className="item rightOption">
+                {showAnchor && (
+                  <div
+                    draggable={false}
+                    className="anchor"
+                    data-value={option.rightOption}
+                    data-ownership={'R'}
+                    data-checked="0"
+                  />
+                )}
+                {type === 'TEXT' ? (
+                  <Input
+                    placeholder="右侧"
+                    value={option.rightOption}
+                    onChange={(e) =>
+                      onInputChange(e.target.value, i, 'rightOption')
+                    }
+                  />
+                ) : (
+                  <div
+                    className="upload-box"
+                    style={{
+                      backgroundImage: `url('${option.rightOption}')`,
+                    }}
+                  >
+                    {option.rightOption ? null : (
+                      <Space direction={'vertical'} align={'center'}>
+                        <UploadOutlined style={{ color: '#C5C5C5' }} />
+                      </Space>
+                    )}
+                    <input
+                      type={'file'}
+                      onChange={(event) => {
+                        onFileChange(event.target.files, i, 'rightOption');
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* 删除 */}
             <Button
+              className="deleteBtn"
+              danger
               icon={<DeleteOutlined />}
-              onClick={() => deleteItem(index)}
+              onClick={() => {
+                onDeleteOption(i);
+              }}
             />
-          </Space>
-        ))}
-        <Space>
-          <Button onClick={addItem}>添加一组数据</Button>
-          <Button onClick={onSave}>保存</Button>
+          </div>
+        );
+      });
+    };
+    return (
+      <div className="match-line">
+        {/* 工具栏 */}
+        <Space style={{ marginBottom: 16 }}>
+          <Button onClick={() => matchline?.reset()}>重置</Button>
+          <Button onClick={() => matchline?.undo()}>撤销</Button>
         </Space>
-      </Space>
-      {/* 设置标准答案部分 */}
-      <div style={{ color: '#999999', margin: '16px 0' }}>
-        温馨提示：您可以先配置数据源，点击 <b>保存</b>
-        后唤醒答案组件设置标准答案即可。
-      </div>
-      {!isEdited && Object.keys(options).length > 0 && (
-        <div className="match-line">
-          <Space>
-            <Button onClick={() => matchLine?.reset()}>重置</Button>
-            <Button onClick={() => matchLine?.undo()}>撤销</Button>
-          </Space>
-          <div className="container">
-            <div className="leftOptions">{renderItems('L')}</div>
-            <div className="rightOptions">{renderItems('R')}</div>
-            <canvas id="canvas"></canvas>
-            <canvas id="backCanvas"></canvas>
-          </div>
-          <div style={{ color: '#999999', margin: '16px 0' }}>
-            温馨提示：请在上方连线设置标准答案。
-          </div>
+        {/* 连线容器 */}
+        <div className="match-line__container" draggable={false}>
+          {/* 内容 */}
+          <div className="match-line__contents">{renderItems()}</div>
+          {/* 画板 */}
+          <canvas id="canvas"></canvas>
+          <canvas id="backCanvas"></canvas>
         </div>
-      )}
-    </div>
-  );
-});
+        {/* 操作项 */}
+        <Button
+          onClick={onPushOption}
+          style={{ marginTop: 16, marginBottom: 16 }}
+        >
+          添加一组数据
+        </Button>
+      </div>
+    );
+  },
+);
 
-export default MatchingQuestion;
+export default MatchLineForm;
 
 ```
 
@@ -934,253 +1025,201 @@ export default MatchingQuestion;
 
 ```less
 .match-line {
-  .container {
-    width: 400px;
-    margin-top: 16px;
-    display: flex;
-    justify-content: space-between;
+  width: 600px;
+  &__container {
     position: relative;
+    canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  }
+  &__contents {
     padding: 16px;
-    border: 1px dashed #ccc;
-  }
-  .option {
-    width: 120px;
-    line-height: 40px;
-    text-align: center;
-    background: #f5f5f5;
-    border-radius: 6px;
-    cursor: pointer;
-    position: relative;
-    z-index: 1;
     user-select: none;
-    &:not(:last-child) {
-      margin-bottom: 16px;
+    border: 1px dashed #ccc;
+    background: #fff;
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      &:not(:last-child) {
+        margin-bottom: 16px;
+      }
     }
-    &.active {
-      background-color: #6495ed;
-      color: #fff;
+    .deleteBtn {
+      position: relative;
+      z-index: 1;
+      margin-left: 16px;
     }
-  }
+    .wrap {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .item {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      position: relative;
+      .anchor {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+        background: #ccc;
 
-  canvas {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
+        cursor: pointer;
+        &.active {
+          background: #6495ed;
+        }
+      }
+    }
+    .upload-box {
+      width: 100px;
+      height: 100px;
+      border: 1px dashed #ccc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 28px;
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: contain;
+      position: relative;
+      [type='file'] {
+        width: 100%;
+        height: 100%;
+        background: orange;
+        position: absolute;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+    }
   }
 }
 
 ```
 
-## 表单中使用（Form.Item）
-
-创建表单时，为了实时更新表单数据，自定以组件可以定义 **`value`** 和 **`onChange`** 来激活，这里我也提供一套能直接复用的代码，供大家参考。
+### 页面调用
 
 ```tsx
-import { DeleteOutlined } from '@ant-design/icons';
-import { App, Button, Input, Space } from 'antd';
-import React, { useEffect, useState } from 'react';
-import MatchLine, { MatchLineAnwsers, MatchLineOptions } from '@likg/match-line';
-import './MatchingQuestion.less';
+import MatchLineForm, { MatchLineFormValue } from '@/components/MatchLineForm';
+import {
+  ProCard,
+  ProForm,
+  ProFormDependency,
+  ProFormInstance,
+  ProFormRadio,
+} from '@ant-design/pro-components';
+import { RuleObject } from 'antd/es/form';
+import { StoreValue } from 'antd/es/form/interface';
+import React, { useRef } from 'react';
 
-type ValueType = {
-  options: MatchLineOptions;
-  anwsers: MatchLineAnwsers;
+const LgTest: React.FC = () => {
+  const vForm = useRef<ProFormInstance>();
+
+  const validator = (_: RuleObject, value: StoreValue) => {
+    if (value) {
+      const { options, anwsers } = value as MatchLineFormValue;
+      const see: Record<string, boolean> = {};
+      for (let i = 0; i < options.length; i++) {
+        const { leftOption, rightOption } = options[i];
+
+        if (!leftOption || !rightOption) {
+          return Promise.reject('请完善选项信息');
+        }
+
+        if (see[leftOption]) {
+          return Promise.reject('选项信息不可重复');
+        }
+        see[leftOption] = true;
+
+        if (see[rightOption]) {
+          return Promise.reject('选项信息不可重复');
+        }
+        see[rightOption] = true;
+      }
+
+      if (!anwsers) {
+        return Promise.reject('请设置标准答案');
+      }
+
+      if (Object.keys(anwsers).length !== options.length) {
+        return Promise.reject('请完善标准答案');
+      }
+
+      return Promise.resolve(null);
+    }
+
+    return Promise.reject('请完善选项信息');
+  };
+  return (
+    <ProCard>
+      <ProForm
+        formRef={vForm}
+        initialValues={{
+          match_type: 'TEXT',
+        }}
+        onFinish={async (values) => {
+          console.log(values);
+        }}
+      >
+        <ProFormRadio.Group
+          label="选择类型"
+          name={'match_type'}
+          required
+          rules={[{ required: true }]}
+          extra={'温馨提示：选项内容支持图片或文本格式'}
+          fieldProps={{
+            onChange: () => {
+              vForm.current?.setFieldValue('matchlines', undefined);
+            },
+          }}
+          options={[
+            { value: 'IMAGE', label: '图片' },
+            { value: 'TEXT', label: '文本' },
+          ]}
+        />
+        <ProFormDependency name={['match_type']}>
+          {({ match_type }) => {
+            switch (match_type) {
+              case 'IMAGE':
+                return (
+                  <ProForm.Item
+                    label="选项信息"
+                    name={'matchlines'}
+                    rules={[{ validator }]}
+                  >
+                    <MatchLineForm key={'IMAGE'} type={'IMAGE'} />
+                  </ProForm.Item>
+                );
+              case 'TEXT':
+                return (
+                  <ProForm.Item
+                    label="选项信息"
+                    name={'matchlines'}
+                    required
+                    rules={[{ validator }]}
+                  >
+                    <MatchLineForm key={'TEXT'} type={'TEXT'} />
+                  </ProForm.Item>
+                );
+            }
+            return null;
+          }}
+        </ProFormDependency>
+      </ProForm>
+    </ProCard>
+  );
 };
 
-interface IProps {
-  value?: ValueType;
-  onChange?: (value: ValueType) => void;
-}
-const defaultItems = [
-  { leftOption: '', rightOption: '' },
-  { leftOption: '', rightOption: '' },
-];
-
-const MatchingQuestion: React.FC<IProps> = React.memo(({ value, onChange }) => {
-  const { message } = App.useApp();
-
-  const [items, setItems] = useState<MatchLineOptions>(
-    value?.options || defaultItems,
-  );
-  const [options, setOptions] = useState<MatchLineOptions>([]);
-  const [matchLine, setMatchLine] = useState<MatchLine | null>(null);
-  const [isEdited, setIsEdited] = useState(false);
-
-  const hasDuplicates = (): 0 | 1 | 2 => {
-    const see: Record<string, boolean> = {};
-    for (const { leftOption, rightOption } of items) {
-      if (!leftOption || !rightOption) {
-        return 1;
-      }
-      if (leftOption === rightOption || see[leftOption] || see[rightOption]) {
-        return 2;
-      }
-      see[leftOption] = see[rightOption] = true;
-    }
-    return 0;
-  };
-
-  const resetAnwsers = (options: MatchLineOptions) => {
-    onChange &&
-      onChange({
-        options: [...options],
-        anwsers: {},
-      });
-  };
-
-  const changeOption = (
-    index: number,
-    v: string,
-    k: 'leftOption' | 'rightOption',
-  ) => {
-    const t = [...items];
-    t[index][k] = v.trim();
-    setItems(t);
-    setIsEdited(true);
-    resetAnwsers(t);
-  };
-
-  const addItem = () => {
-    const t = [...items];
-    t.push({ leftOption: '', rightOption: '' });
-    setItems(t);
-    setIsEdited(true);
-    resetAnwsers(t);
-  };
-
-  const deleteItem = (index: number) => {
-    if (items.length <= 2) {
-      message.info('至少保留两项');
-      return;
-    }
-    const t = [...items];
-    t.splice(index, 1);
-    setItems(t);
-    setIsEdited(true);
-    resetAnwsers(t);
-  };
-
-  const onSave = () => {
-    const flag = hasDuplicates();
-    if (flag) {
-      return message.error(flag === 1 ? '有待填写的数据项' : '有重复的数据项');
-    } else {
-      setIsEdited(false);
-      resetAnwsers(items);
-    }
-  };
-
-  useEffect(() => {
-    if (value) {
-      setOptions(value.options);
-      setTimeout(() => {
-        // -- 获取元素
-        const container = document.querySelector('.match-line .container');
-        const elements = document.querySelectorAll('.match-line .option');
-        const canvas = document.getElementById('canvas');
-        const backCanvas = document.getElementById('backCanvas');
-        // -- 初始化连线库
-        if (container && elements && canvas && backCanvas) {
-          const matching = new MatchLine({
-            id: 'v',
-            container: container as HTMLElement,
-            items: elements as NodeListOf<HTMLElement>,
-            canvas: canvas as HTMLCanvasElement,
-            backCanvas: backCanvas as HTMLCanvasElement,
-            itemActiveCls: 'active',
-            anwsers: value.anwsers || {},
-            debug: true,
-            onChange: (anwsers) => {
-              if (onChange) {
-                onChange({
-                  options: [...value.options],
-                  anwsers: { ...anwsers },
-                });
-              }
-            },
-          });
-          setMatchLine(matching);
-        }
-      }, 0);
-    }
-  }, [value]);
-
-  // 渲染列表项
-  const renderItems = (ownership: 'L' | 'R') => {
-    const k = ownership === 'L' ? 'leftOption' : 'rightOption';
-    return options.map((item, index) => (
-      <div
-        className="option"
-        key={index}
-        data-value={item[k]}
-        data-ownership={ownership}
-      >
-        {item[k]}
-      </div>
-    ));
-  };
-
-  return (
-    <div>
-      {/* 构造数据项部分 */}
-      <Space direction={'vertical'}>
-        {items.map(({ leftOption, rightOption }, index) => (
-          <Space key={index}>
-            <Input
-              value={leftOption}
-              placeholder="左侧"
-              onChange={(e) =>
-                changeOption(index, e.target.value, 'leftOption')
-              }
-            />
-            <span>:</span>
-            <Input
-              value={rightOption}
-              placeholder="右侧"
-              onChange={(e) =>
-                changeOption(index, e.target.value, 'rightOption')
-              }
-            />
-            <Button
-              icon={<DeleteOutlined />}
-              onClick={() => deleteItem(index)}
-            />
-          </Space>
-        ))}
-        <Space>
-          <Button onClick={addItem}>添加一组数据</Button>
-          <Button onClick={onSave}>保存</Button>
-        </Space>
-      </Space>
-      <div style={{ color: '#999999', margin: '16px 0' }}>
-        温馨提示：您可以先配置数据源，点击 <b>保存</b>
-        后唤醒答案组件设置标准答案即可。
-      </div>
-      {/* 设置标准答案部分 */}
-      {!isEdited && Object.keys(options).length > 0 ? (
-        <div className="match-line">
-          <Space>
-            <Button onClick={() => matchLine?.reset()}>重置</Button>
-            <Button onClick={() => matchLine?.undo()}>撤销</Button>
-          </Space>
-          <div className="container">
-            <div className="leftOptions">{renderItems('L')}</div>
-            <div className="rightOptions">{renderItems('R')}</div>
-            <canvas id="canvas"></canvas>
-            <canvas id="backCanvas"></canvas>
-          </div>
-          <div style={{ color: '#999999', margin: '16px 0' }}>
-            温馨提示：请在上方连线设置标准答案。
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-});
-
-export default MatchingQuestion;
+export default LgTest;
 ```
 
 # 尾叙
