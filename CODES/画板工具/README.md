@@ -188,6 +188,21 @@
 
 ```js
 /**
+ * 绘制圆点
+ * 鼠标按下时调用
+ * @param {*} x
+ * @param {*} y
+ * @param {*} radius
+ */
+function drawCircle(x, y, radius) {
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.closePath();
+}
+
+/**
  * 获取指定元素在文档中的位置
  * @param {*} element
  * @returns
